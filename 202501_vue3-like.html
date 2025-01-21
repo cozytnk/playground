@@ -1,0 +1,110 @@
+<script>
+Object.assign(window, {
+
+  Mount (selector, data) {
+    const calc = (expr, data) => {
+      let f = new Function(...Object.keys(data), `return (${expr})`)
+      try {
+        return f(...Object.values(data))
+      } catch (e) {
+        // console.error(e)
+        console.error('error at calc', { expr, data }, e)
+        // throw e
+        return undefined
+      }
+    }
+    let root = document.querySelector(selector)
+    root.toggleAttribute('v-root', true)
+    root.setAttribute('v-data', JSON.stringify(data))
+    const getData = (el) => {
+      if (el.hasAttribute('v-root')) {
+        let data = el.getAttribute('v-data')
+        data = JSON.parse(data)
+        return data
+      } else {
+        let data = el.getAttribute('v-data')
+        data = JSON.parse(data ?? '{}')
+        return { ...getData(el.parentElement), ...data }
+      }
+    }
+    // v-for
+    /** @type {HTMLElement} */
+    let el = root.querySelector('[v-for]')
+    while (el) {
+      let [, varExpr, iterExpr] = el.getAttribute('v-for').match(/(.+) +in +(.+)/) ?? []
+      // v-for="(v,k) in it" pattern
+      // ;/^ *(\( *(?<v>.+) *, *(?<k>.+) *\)| *(?<v>.+) *) +in +(?<it>.+) *$/
+      el.removeAttribute('v-for')
+
+      let data = getData(el)
+      let iter = calc(iterExpr, data)
+      Object.values(iter).map(var_ => {
+        let el_ = el.cloneNode(true)
+        el_.setAttribute('v-data', JSON.stringify({ [varExpr]: var_ }))
+        return el_
+      }).reverse().forEach(el_ => el.after(el_))
+
+      el.remove()
+      el = root.querySelector('[v-for]')
+    }
+    // format {{expr}} and v-bind
+    ;[
+      root,
+      ...root.querySelectorAll('*')
+    ].reverse().forEach(el => {
+      let data = getData(el)
+      el.getAttributeNames().forEach(attrName => {
+        if (/^(v-bind)?:/.test(attrName)) {
+          let { attr } = attrName.match(/^(v-bind)?:(?<attr>.+)/)?.groups ?? {}
+          let expr = el.getAttribute(attrName)
+          expr = expr.replace(/&.+;/g, m => ({ '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&#x27;': '\'', '&#x60;': '`' })[m])
+          let data = getData(el)
+          let val = calc(expr, data)
+          el.setAttribute(attr, val)
+          el.removeAttribute(attrName)
+        }
+      })
+      el.innerHTML = el.innerHTML
+      .replace(/\<!--.+--\>/g,'')
+      .replace(/\{\{(.+?)\}\}/g, (m,expr) => {
+        expr = expr.replace(/&.+;/g, m => ({ '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&#x27;': '\'', '&#x60;': '`' })[m])
+        let val = calc(expr, data)
+        return val
+      })
+    })
+    // remove v-data
+    ;[
+      root,
+      ...root.querySelectorAll('[v-data]')
+    ].forEach(el => el.removeAttribute('v-data'))
+  },
+
+})
+</script>
+
+
+<div id="app">
+  <div>{{ title }}</div>
+  <div>16 ** 2 = {{ 16 ** 2 }}</div>
+  <div>{{ ukn }}</div>
+  <img :src="src" :alt="src">
+  <ul>
+    <li v-for="item in items">
+      {{ item.type }} : {{ item.name }} ({{ item.size ?? '-' }})
+    </li>
+  </ul>
+</div>
+
+
+<script>
+
+Mount('#app', {
+  title: 'hogehoge',
+  src: 'https://placehold.jp/150x150.png',
+  items: [
+    { type: 'dir', name: 'test' },
+    { type: 'file', name: 'index.html', size: 50 },
+  ],
+})
+
+</script>
