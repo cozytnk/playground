@@ -1,0 +1,27 @@
+<script src="./resize.js"></script>
+
+<style>
+  main {
+    width: 500px;
+    height: 500px;
+    color: lightgray;
+    border: solid 1px darkgray;
+    display: flex;
+    & > :first-child {
+      flex: 1;
+      padding: 5px;
+      background-color: darkblue;
+    }
+    & > :last-child {
+      width: 100px;
+      min-width: 50px;
+      padding: 5px;
+      background-color: darkred;
+    }
+  }
+</style>
+
+<main>
+  <div >first element</div>
+  <div resize="left">second element</div>
+</main>
